@@ -641,9 +641,92 @@ describe('useChapter', () => {
 
       expect(result.current.chapterText).toBe('SANITIZED:chapter body');
       expect(result.current.showingTranslation).toBe(false);
-      expect(result.current.translationAvailable).toBe(false);
       expect(mockTranslateChapter).not.toHaveBeenCalled();
       expect(mockShowToast).not.toHaveBeenCalled();
+    });
+
+    it('offers no button without a key, a saved translation or the mode', async () => {
+      mockTranslation = translationSettings({ showTranslation: false });
+
+      const { result } = await renderLoaded();
+
+      expect(result.current.translationAvailable).toBe(false);
+    });
+
+    it('keeps the button while the mode is on after the key is removed', async () => {
+      mockTranslation = translationSettings();
+
+      const { result, rerender } = await renderLoaded();
+
+      expect(result.current.translationAvailable).toBe(true);
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() => expect(mockTranslation?.showTranslation).toBe(false));
+      rerender({});
+
+      expect(result.current.translationAvailable).toBe(false);
+      expect(mockTranslateChapter).not.toHaveBeenCalled();
+    });
+
+    it('opens a saved translation when the original cannot be fetched', async () => {
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+      mockFetchChapter.mockRejectedValue(new Error('offline'));
+
+      const { result } = await renderLoaded();
+
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.showingTranslation).toBe(true);
+      expect(result.current.chapterText).toBe('SANITIZED:<p>translated 1</p>');
+      expect(mockFetchChapter).not.toHaveBeenCalled();
+    });
+
+    it('loads the original on demand after a saved translation opened without it', async () => {
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+
+      const { result } = await renderLoaded();
+      expect(mockFetchChapter).not.toHaveBeenCalled();
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+
+      await waitFor(() =>
+        expect(result.current.chapterText).toBe('SANITIZED:chapter body'),
+      );
+      expect(result.current.error).toBeUndefined();
+    });
+
+    it('toggles a saved translation both ways without a key', async () => {
+      mockTranslation = translationSettings({ showTranslation: false });
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+
+      const { result, rerender } = await renderLoaded();
+      expect(result.current.translationAvailable).toBe(true);
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() => expect(result.current.showingTranslation).toBe(true));
+      rerender({});
+      expect(result.current.chapterText).toBe('SANITIZED:<p>translated 1</p>');
+      expect(mockTranslation?.showTranslation).toBe(true);
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() =>
+        expect(result.current.showingTranslation).toBe(false),
+      );
+      rerender({});
+
+      expect(result.current.chapterText).toBe('SANITIZED:chapter body');
+      expect(mockTranslation?.showTranslation).toBe(false);
+      expect(result.current.translationAvailable).toBe(true);
+      expect(mockTranslateChapter).not.toHaveBeenCalled();
     });
 
     it('offers a saved translation without a key while the mode is off', async () => {
@@ -719,6 +802,63 @@ describe('useChapter', () => {
       await waitFor(() => expect(result.current.showingTranslation).toBe(true));
       expect(mockTranslateChapter).toHaveBeenCalledTimes(2);
       expect(result.current.chapterText).toBe('SANITIZED:<p>translated 1</p>');
+    });
+
+    it('keeps the mode when opening a chapter fails, and drops it when a press fails', async () => {
+      mockApiKey = 'key';
+      mockTranslation = translationSettings();
+      mockTranslateChapter.mockRejectedValue(new TranslationError('network'));
+
+      const { result, rerender } = await renderLoaded();
+      expect(mockTranslation?.showTranslation).toBe(true);
+      expect(mockSetTranslation).not.toHaveBeenCalled();
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() =>
+        expect(mockTranslateChapter).toHaveBeenCalledTimes(2),
+      );
+      await waitFor(() => expect(mockTranslation?.showTranslation).toBe(false));
+      rerender({});
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() =>
+        expect(mockTranslateChapter).toHaveBeenCalledTimes(3),
+      );
+      await waitFor(() => expect(mockTranslation?.showTranslation).toBe(false));
+      expect(mockSetTranslation).toHaveBeenLastCalledWith({
+        showTranslation: false,
+      });
+      expect(result.current.showingTranslation).toBe(false);
+    });
+
+    it('does not drop the mode for a pressed translation the reader left', async () => {
+      mockApiKey = 'key';
+      mockTranslation = translationSettings({ showTranslation: false });
+      const deferred = createDeferred<never>();
+      mockTranslateChapter
+        .mockReturnValueOnce(deferred.promise)
+        .mockResolvedValueOnce(savedTranslation(2));
+
+      const { result } = await renderLoaded();
+
+      act(() => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() => expect(result.current.translating).toBe(true));
+
+      await act(async () => {
+        await result.current.getChapter(nextChapter);
+      });
+      await act(async () => {
+        deferred.reject(new TranslationError('network'));
+      });
+
+      expect(mockTranslation?.showTranslation).toBe(true);
+      expect(result.current.showingTranslation).toBe(true);
     });
 
     it('does not retry a failed translation on re-render', async () => {
@@ -930,6 +1070,10 @@ describe('useChapter', () => {
       });
 
       expect(mockTranslateChapter).not.toHaveBeenCalled();
+      expect(mockFetchChapter).not.toHaveBeenCalledWith(
+        novel.pluginId,
+        initialChapter.path,
+      );
       expect(result.current.chapter.id).toBe(nextChapter.id);
     });
 

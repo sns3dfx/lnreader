@@ -171,6 +171,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
   const nextChapterScreenVisible = useRef<boolean>(false);
   const autoStartTTSRef = useRef<boolean>(false);
   const activeChapterIdRef = useRef(chapter.id);
+  const activeTextRef = useRef(html);
   const adjacentChapterScriptRef = useRef(buildAdjacentChapterScript());
   const {
     command: runTtsCommand,
@@ -227,12 +228,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
     }
   }, [ttsProgress, webViewRef]);
 
+  // The text also changes within a chapter when the translation is toggled, and
+  // the native queue would otherwise keep reading what is no longer shown.
   useEffect(() => {
-    if (activeChapterIdRef.current !== chapter.id) {
+    if (
+      activeChapterIdRef.current !== chapter.id ||
+      activeTextRef.current !== html
+    ) {
       activeChapterIdRef.current = chapter.id;
+      activeTextRef.current = html;
       runTtsCommand('stop');
     }
-  }, [chapter.id, runTtsCommand]);
+  }, [chapter.id, html, runTtsCommand]);
 
   useEffect(() => {
     const script = buildAdjacentChapterScript(nextChapter, prevChapter);
