@@ -673,6 +673,7 @@ export interface StringMap {
   'translation.novel.title': 'string';
   'translation.novel.uploadGlossary': 'string';
   'translation.reader.autoAdvanceStopped': 'string';
+  'translation.reader.originalUnavailable': 'string';
   'translation.reader.toggle': 'string';
   'translation.reader.translating': 'string';
   'translation.settings.apiKey': 'string';

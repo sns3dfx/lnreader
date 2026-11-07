@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import useChapter from '../useChapter';
 import NativeFile from '@modules/native-file';
 import NativeVolumeButtonListener from '@modules/native-volume-button-listener';
+import { getString } from '@i18n/translations';
 import { TranslationError } from '@services/translation/deeplClient';
 import { translationErrorMessage } from '@services/translation/translationErrorMessage';
 import type { NovelTranslationSettings } from '@hooks/persisted/useNovel/types';
@@ -698,6 +699,138 @@ describe('useChapter', () => {
         expect(result.current.chapterText).toBe('SANITIZED:chapter body'),
       );
       expect(result.current.error).toBeUndefined();
+    });
+
+    it('keeps the translation on screen when a press cannot load the original', async () => {
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+      mockFetchChapter.mockRejectedValue(new Error('offline'));
+
+      const { result } = await renderLoaded();
+      const { chapter } = result.current;
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() =>
+        expect(mockShowToast).toHaveBeenCalledWith(
+          getString('translation.reader.originalUnavailable'),
+        ),
+      );
+
+      expect(result.current.chapterText).toBe('SANITIZED:<p>translated 1</p>');
+      expect(result.current.showingTranslation).toBe(true);
+      expect(result.current.translatedTitle).toBe('Translated 1');
+      expect(result.current.chapter).toBe(chapter);
+      expect(result.current.error).toBeUndefined();
+      expect(result.current.loading).toBe(false);
+      expect(result.current.translating).toBe(false);
+      expect(mockTranslation?.showTranslation).toBe(true);
+      expect(mockSetTranslation).not.toHaveBeenCalled();
+    });
+
+    it('switches to the original on the next press once it can be loaded', async () => {
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+      mockFetchChapter.mockRejectedValueOnce(new Error('offline'));
+
+      const { result } = await renderLoaded();
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+
+      await waitFor(() =>
+        expect(result.current.chapterText).toBe('SANITIZED:chapter body'),
+      );
+      expect(result.current.showingTranslation).toBe(false);
+      expect(mockTranslation?.showTranslation).toBe(false);
+    });
+
+    it('writes the mode off only after the original has loaded', async () => {
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+      const deferredText = createDeferred<string>();
+      mockFetchChapter.mockReturnValue(deferredText.promise);
+
+      const { result } = await renderLoaded();
+
+      act(() => {
+        result.current.toggleTranslation();
+      });
+
+      await waitFor(() => expect(result.current.translating).toBe(true));
+      expect(result.current.loading).toBe(false);
+      expect(result.current.showingTranslation).toBe(true);
+      expect(mockSetTranslation).not.toHaveBeenCalled();
+
+      await act(async () => {
+        deferredText.resolve('chapter body');
+      });
+
+      await waitFor(() =>
+        expect(result.current.showingTranslation).toBe(false),
+      );
+      expect(result.current.translating).toBe(false);
+      expect(mockSetTranslation).toHaveBeenCalledWith({
+        showTranslation: false,
+      });
+    });
+
+    it('shows no indicator when a press finds the original already cached', async () => {
+      mockApiKey = 'key';
+      mockTranslation = translationSettings();
+      mockTranslateChapter.mockResolvedValue(savedTranslation());
+
+      const { result } = await renderLoaded();
+      const deferredChapter = createDeferred<typeof initialChapter>();
+      mockGetDbChapter.mockReturnValue(deferredChapter.promise);
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      expect(result.current.translating).toBe(false);
+
+      await act(async () => {
+        deferredChapter.resolve(initialChapter);
+      });
+      await waitFor(() =>
+        expect(result.current.showingTranslation).toBe(false),
+      );
+    });
+
+    it('keeps the original on screen when a press to translate cannot load it', async () => {
+      mockApiKey = 'key';
+      mockTranslation = translationSettings({ showTranslation: false });
+
+      const { result, store } = await renderLoaded();
+      store.chapterTextCache.remove(initialChapter.id);
+      mockFetchChapter.mockRejectedValue(new Error('offline'));
+
+      await act(async () => {
+        result.current.toggleTranslation();
+      });
+      await waitFor(() => expect(mockShowToast).toHaveBeenCalled());
+
+      expect(result.current.chapterText).toBe('SANITIZED:chapter body');
+      expect(result.current.error).toBeUndefined();
+      await waitFor(() => expect(mockTranslation?.showTranslation).toBe(false));
+      expect(mockTranslateChapter).not.toHaveBeenCalled();
+    });
+
+    it('still shows the error screen when opening a chapter fails', async () => {
+      mockTranslation = translationSettings();
+      mockFetchChapter.mockRejectedValue(new Error('offline'));
+
+      const { result } = await renderLoaded();
+
+      expect(result.current.error).toBe('offline');
+      expect(mockShowToast).not.toHaveBeenCalled();
     });
 
     it('toggles a saved translation both ways without a key', async () => {

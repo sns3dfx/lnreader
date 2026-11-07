@@ -793,6 +793,7 @@
     },
     "reader": {
       "autoAdvanceStopped": "Reading stopped: the next chapter is not translated yet.",
+      "originalUnavailable": "Could not load the original chapter.",
       "toggle": "Switch between original and translation",
       "translating": "Translating"
     },

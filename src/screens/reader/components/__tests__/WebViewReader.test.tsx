@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native';
+import { act, render } from '@test-utils';
 
 import WebViewReader from '../WebViewReader';
 
@@ -100,6 +100,31 @@ jest.mock('@utils/showToast', () => ({
 
 jest.mock('@i18n/translations', () => ({
   getString: (key: string) => key,
+}));
+
+jest.mock('react-native-safe-area-context', () => {
+  const ReactModule = require('react');
+  const frame = { height: 800, width: 400, x: 0, y: 0 };
+  const insets = { bottom: 0, left: 0, right: 0, top: 0 };
+
+  return {
+    SafeAreaFrameContext: ReactModule.createContext(frame),
+    SafeAreaInsetsContext: ReactModule.createContext(insets),
+    SafeAreaProvider: ({ children }: { children: React.ReactNode }) => children,
+    initialWindowMetrics: { frame, insets },
+    useSafeAreaFrame: () => frame,
+    useSafeAreaInsets: () => insets,
+  };
+});
+
+jest.mock('@components/AppErrorBoundary/AppErrorBoundary', () => ({
+  __esModule: true,
+  default: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+jest.mock('@screens/novel/NovelContext', () => ({
+  NovelContextProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
 }));
 
 const STOP_SCRIPT = 'window.tts?.stop?.(); true;';

@@ -58,6 +58,9 @@ type AdjacentChapters = [
 /** Stable identity so resetting the adjacent chapters never renders twice. */
 const NO_ADJACENT_CHAPTERS: AdjacentChapters = [undefined, undefined];
 
+/** A load the translation button started, and which way it was pressed. */
+type TranslationPress = 'show' | 'hide';
+
 const hasTranslationLanguages = (
   settings: NovelTranslationSettings | undefined,
 ): settings is NovelTranslationSettings => Boolean(settings?.targetLang);
@@ -130,11 +133,13 @@ export default function useChapter(
   /** Chapter the newest load is opening, so a toggle cannot cancel the open. */
   const openingChapterRef = useRef<ChapterInfo | undefined>(undefined);
   /**
-   * What the button last asked for, ahead of `showingTranslation` while a load
-   * runs. A chapter that opened without its translation resets it, so the next
-   * press retries even though the stored mode is still on.
+   * What the button last asked for, ahead of what is on screen while a load
+   * runs. Every finished load resets it to what is on screen, so after a chapter
+   * opened without its translation the next press retries even though the
+   * stored mode is still on.
    */
   const translationWantedRef = useRef(false);
+  const translationOnScreenRef = useRef(false);
 
   useEffect(() => {
     chapterRef.current = chapter;
@@ -450,20 +455,30 @@ export default function useChapter(
   }, []);
 
   const getChapter = useCallback(
-    async (navChapter?: ChapterInfo, pressed = false) => {
+    async (navChapter?: ChapterInfo, press?: TranslationPress) => {
       const loadId = ++loadIdRef.current;
       const isStale = () => loadId !== loadIdRef.current;
       const requested = navChapter ?? chapterRef.current;
       openingChapterRef.current = navChapter;
 
       const settings = translationRef.current;
+      // A press to hide runs as if the mode were off, but the mode itself is only
+      // written once the original has loaded: see below.
       const translationMode =
-        hasTranslationLanguages(settings) && settings.showTranslation
+        press !== 'hide' &&
+        hasTranslationLanguages(settings) &&
+        settings.showTranslation
           ? settings
           : undefined;
       let shown: SavedTranslation | undefined;
 
       try {
+        // A chapter opened from its translation has no original yet, and fetching
+        // it can take a while. A cached one is ready at once: no indicator flash.
+        if (press === 'hide' && !chapterTextCache.read(requested.id)) {
+          setTranslating(true);
+        }
+
         // Looked up first so a saved translation opens even when the original
         // cannot be fetched; the original is then skipped until a toggle needs
         // it. Otherwise the text load goes first: it is all a paint needs.
@@ -506,6 +521,10 @@ export default function useChapter(
           return;
         }
 
+        if (press === 'hide') {
+          storeTranslationMode(false);
+        }
+        translationOnScreenRef.current = Boolean(shown);
         setChapter(chap);
         // Sanitized here rather than cached: the cache only ever holds originals.
         setChapterText(
@@ -529,24 +548,30 @@ export default function useChapter(
         if (isStale()) {
           return;
         }
-        setError(e.message);
         setLoading(false);
+        // A press must never trade the text being read for the error screen.
+        if (press) {
+          showToast(getString('translation.reader.originalUnavailable'));
+        } else {
+          setError(e.message);
+        }
       } finally {
         // Only the newest load may clear these: a superseded one finishing must
         // not hide the indicator of the translation that replaced it.
         if (!isStale()) {
           openingChapterRef.current = undefined;
-          translationWantedRef.current = Boolean(shown);
+          translationWantedRef.current = translationOnScreenRef.current;
           setTranslating(false);
           // A press that ends without a translation leaves the mode off, or it
           // could never be turned off while translating fails or the key is gone.
-          if (pressed && !shown && translationRef.current?.showTranslation) {
+          if (press === 'show' && !shown) {
             storeTranslationMode(false);
           }
         }
       }
     },
     [
+      chapterTextCache,
       loadChapterHtml,
       novel.name,
       novel.pluginId,
@@ -563,8 +588,13 @@ export default function useChapter(
     }
     const showTranslation = !translationWantedRef.current;
     translationWantedRef.current = showTranslation;
-    storeTranslationMode(showTranslation);
-    void getChapter(openingChapterRef.current, true);
+    if (showTranslation) {
+      storeTranslationMode(true);
+    }
+    void getChapter(
+      openingChapterRef.current,
+      showTranslation ? 'show' : 'hide',
+    );
   }, [getChapter, storeTranslationMode]);
 
   /**
