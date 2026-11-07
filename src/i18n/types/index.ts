@@ -652,6 +652,9 @@ export interface StringMap {
   'trackingScreen.logOutMessage': 'string';
   'trackingScreen.revalidate': 'string';
   'trackingScreen.services': 'string';
+  'translation.chapter.deleteTranslation': 'string';
+  'translation.chapter.retranslate': 'string';
+  'translation.chapter.translate': 'string';
   'translation.errors.emptyResult': 'string';
   'translation.errors.glossaryMissing': 'string';
   'translation.errors.invalidKey': 'string';

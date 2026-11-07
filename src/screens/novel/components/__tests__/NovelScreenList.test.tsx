@@ -67,6 +67,15 @@ jest.mock('@legendapp/list/react-native', () => {
   };
 });
 
+jest.mock('../../hooks/useChapterTranslations', () => ({
+  useChapterTranslations: () => ({
+    getState: () => undefined,
+    translate: jest.fn(),
+    retranslate: jest.fn(),
+    remove: jest.fn(),
+  }),
+}));
+
 jest.mock('../ChapterItem', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');

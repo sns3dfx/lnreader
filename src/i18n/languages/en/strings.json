@@ -767,6 +767,11 @@
     "services": "Services"
   },
   "translation": {
+    "chapter": {
+      "deleteTranslation": "Delete translation",
+      "retranslate": "Translate again",
+      "translate": "Translate chapter"
+    },
     "errors": {
       "emptyResult": "DeepL returned an empty translation. Nothing was saved.",
       "glossaryMissing": "The DeepL glossary was not found.",

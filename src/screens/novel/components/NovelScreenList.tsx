@@ -34,6 +34,7 @@ import { useSaveNovelCover } from '../hooks/useSaveNovelCover';
 import { NovelScreenProps } from '@navigators/types';
 import { useDownloadReconciliation } from '../hooks/useDownloadReconciliation';
 import NovelFloatingActions from './NovelFloatingActions';
+import { useChapterTranslations } from '../hooks/useChapterTranslations';
 import { getDownloadProgressKey } from '@services/backgroundTasks/taskDefinitions';
 
 type NovelScreenListProps = {
@@ -102,6 +103,12 @@ const NovelScreenList = ({
   const { filter, showChapterTitles = false } = novelSettings;
 
   const theme = useTheme();
+  const {
+    getState: getTranslationState,
+    translate: translateChapter,
+    retranslate: retranslateChapter,
+    remove: removeTranslation,
+  } = useChapterTranslations();
   const { top: topInset, bottom: bottomInset } = useSafeAreaInsets();
 
   const {
@@ -381,6 +388,10 @@ const NovelScreenList = ({
         <ChapterItem
           chapter={item}
           isDownloading={downloadingChapterIds.has(item.id)}
+          translationState={getTranslationState(item.id)}
+          onTranslateChapter={translateChapter}
+          onRetranslateChapter={retranslateChapter}
+          onDeleteTranslation={removeTranslation}
           isBookmarked={!!item.bookmark}
           isLocal={novel.isLocal ?? false}
           theme={theme}
@@ -398,6 +409,10 @@ const NovelScreenList = ({
     },
     [
       downloadingChapterIds,
+      getTranslationState,
+      translateChapter,
+      retranslateChapter,
+      removeTranslation,
       handleDeleteChapter,
       handleDownloadChapter,
       novel,
@@ -411,8 +426,8 @@ const NovelScreenList = ({
     ],
   );
   const listExtraData = useMemo(
-    () => ({ downloadingChapterIds, selectedIds }),
-    [downloadingChapterIds, selectedIds],
+    () => ({ downloadingChapterIds, selectedIds, getTranslationState }),
+    [downloadingChapterIds, selectedIds, getTranslationState],
   );
   const contentContainerStyle = useMemo(
     () => ({ paddingBottom: 100 + bottomInset }),

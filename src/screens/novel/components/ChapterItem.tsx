@@ -4,6 +4,8 @@ import {
   ChapterBookmarkButton,
   DownloadButton,
 } from './Chapter/ChapterDownloadButtons';
+import { TranslateButton } from './Chapter/ChapterTranslateButton';
+import type { ChapterTranslationState } from '../hooks/useChapterTranslations';
 import { ThemeColors } from '@theme/types';
 import { ChapterInfo } from '@database/types';
 import MaterialCommunityIcons from '@react-native-vector-icons/material-design-icons';
@@ -13,6 +15,7 @@ import { DateFormat, formatDate } from '@utils/dateFormat';
 interface ChapterItemProps {
   chapter: ChapterInfo;
   isDownloading?: boolean;
+  translationState?: ChapterTranslationState;
   isBookmarked?: boolean;
   isSelected?: boolean;
   isLocal: boolean;
@@ -23,6 +26,9 @@ interface ChapterItemProps {
   left?: ReactNode;
   onDeleteChapter: (chapter: ChapterInfo) => void;
   onDownloadChapter: (chapter: ChapterInfo) => void;
+  onTranslateChapter?: (chapter: ChapterInfo) => void;
+  onRetranslateChapter?: (chapter: ChapterInfo) => void;
+  onDeleteTranslation?: (chapter: ChapterInfo) => void;
   onSelectPress: (chapter: ChapterInfo) => void;
   onSelectLongPress?: (chapter: ChapterInfo) => void;
   dateFormat?: DateFormat;
@@ -32,6 +38,7 @@ interface ChapterItemProps {
 const ChapterItem: React.FC<ChapterItemProps> = ({
   chapter,
   isDownloading,
+  translationState,
   isBookmarked,
   isSelected,
   isLocal,
@@ -42,6 +49,9 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   left,
   onDeleteChapter,
   onDownloadChapter,
+  onTranslateChapter,
+  onRetranslateChapter,
+  onDeleteTranslation,
   onSelectPress,
   onSelectLongPress,
   dateFormat = 'default',
@@ -68,6 +78,18 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   const handleDownload = useCallback(
     () => onDownloadChapter(chapter),
     [onDownloadChapter, chapter],
+  );
+  const handleTranslate = useCallback(
+    () => onTranslateChapter?.(chapter),
+    [onTranslateChapter, chapter],
+  );
+  const handleRetranslate = useCallback(
+    () => onRetranslateChapter?.(chapter),
+    [onRetranslateChapter, chapter],
+  );
+  const handleDeleteTranslation = useCallback(
+    () => onDeleteTranslation?.(chapter),
+    [onDeleteTranslation, chapter],
   );
 
   const selectedStyle = useMemo(
@@ -193,6 +215,15 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
             </View>
           </View>
         </View>
+        {!isLocal && translationState ? (
+          <TranslateButton
+            state={translationState}
+            theme={theme}
+            translate={handleTranslate}
+            retranslate={handleRetranslate}
+            deleteTranslation={handleDeleteTranslation}
+          />
+        ) : null}
         {!isLocal ? (
           <DownloadButton
             isDownloading={isDownloading}
