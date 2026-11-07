@@ -658,6 +658,8 @@
       "bionicReadingDescription": "Bold the start of each word to help your eyes track faster",
       "tapToScroll": "Tap to scroll",
       "tapToScrollDescription": "Tap the top or bottom of the screen to scroll through the chapter",
+      "allowLongPress": "Long press actions",
+      "allowLongPressDescription": "Long press to select text or open an image. When off, long presses in the reader do nothing",
       "color": "Color",
       "display": "Display",
       "fontStyle": "Font style",

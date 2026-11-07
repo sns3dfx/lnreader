@@ -65,6 +65,7 @@ export const initialChapterGeneralSettings = {
   removeExtraParagraphSpacing: false,
   bionicReading: false,
   tapToScroll: false,
+  allowLongPress: false,
   TTSEnable: true,
   pageReaderInvertVolumeButtons: false,
   pageReaderDisableAnimation: false,

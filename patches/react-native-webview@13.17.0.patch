@@ -1,0 +1,13 @@
+diff --git a/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+index 80c68034b193a47bedb56ca527352de9548e8ac6..63be897df3ab27d468f774a71ac1c05b5af2d81b 100644
+--- a/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
++++ b/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
+@@ -89,6 +89,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+         super(reactContext);
+         mMessagingJSModule = ((ThemedReactContext) this.getContext()).getReactApplicationContext().getJSModule(RNCWebViewMessagingModule.class);
+         progressChangedFilter = new ProgressChangedFilter();
++        // Chromium vibrates on every long press, even over user-select: none text.
++        setHapticFeedbackEnabled(false);
+     }
+ 
+     public void setBasicAuthCredential(RNCBasicAuthCredential credential) {

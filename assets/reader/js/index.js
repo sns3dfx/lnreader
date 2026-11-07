@@ -207,6 +207,9 @@ const ModalWrapper = () => {
   };
 
   document.addEventListener('contextmenu', e => {
+    if (!reader.generalSettings.val.allowLongPress) {
+      return;
+    }
     if (e.target instanceof HTMLImageElement) {
       if (!imgSrc.val) {
         showImage(e.target.src);

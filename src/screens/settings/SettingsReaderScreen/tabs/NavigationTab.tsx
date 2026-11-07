@@ -22,6 +22,7 @@ const NavigationTab: React.FC = () => {
     autoScrollInterval = 10,
     autoScrollOffset = null,
     tapToScroll = false,
+    allowLongPress = false,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
 
@@ -105,6 +106,17 @@ const NavigationTab: React.FC = () => {
           value={tapToScroll}
           onPress={() =>
             setChapterGeneralSettings({ tapToScroll: !tapToScroll })
+          }
+          theme={theme}
+        />
+        <SettingSwitch
+          label={getString('readerScreen.bottomSheet.allowLongPress')}
+          description={getString(
+            'readerScreen.bottomSheet.allowLongPressDescription',
+          )}
+          value={allowLongPress}
+          onPress={() =>
+            setChapterGeneralSettings({ allowLongPress: !allowLongPress })
           }
           theme={theme}
         />

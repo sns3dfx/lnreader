@@ -193,6 +193,7 @@ export interface ChapterGeneralSettings {
   removeExtraParagraphSpacing: boolean;
   bionicReading: boolean;
   tapToScroll: boolean;
+  allowLongPress: boolean;
   TTSEnable: boolean;
   pageReaderInvertVolumeButtons: boolean;
   pageReaderDisableAnimation: boolean;
@@ -320,6 +321,7 @@ export const initialChapterGeneralSettings: ChapterGeneralSettings = {
   removeExtraParagraphSpacing: false,
   bionicReading: false,
   tapToScroll: false,
+  allowLongPress: false,
   TTSEnable: true,
   pageReaderInvertVolumeButtons: false,
   pageReaderDisableAnimation: false,
