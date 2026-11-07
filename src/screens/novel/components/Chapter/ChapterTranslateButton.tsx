@@ -11,6 +11,7 @@ import type { ChapterTranslationState } from '@screens/novel/hooks/useChapterTra
 
 interface TranslateButtonProps {
   state: ChapterTranslationState;
+  canTranslate?: boolean;
   theme: ThemeColors;
   translate: () => void;
   retranslate: () => void;
@@ -19,6 +20,7 @@ interface TranslateButtonProps {
 
 export const TranslateButton: React.FC<TranslateButtonProps> = ({
   state,
+  canTranslate = true,
   theme,
   translate,
   retranslate,
@@ -60,19 +62,22 @@ export const TranslateButton: React.FC<TranslateButtonProps> = ({
           <TranslateIconButton
             theme={theme}
             color={theme.primary}
+            label={getString('translation.chapter.options')}
             onPress={showMenu}
           />
         }
         contentStyle={menuContentStyle}
       >
-        <Menu.Item
-          onPress={() => {
-            retranslate();
-            hideMenu();
-          }}
-          title={getString('translation.chapter.retranslate')}
-          titleStyle={menuTitleStyle}
-        />
+        {canTranslate ? (
+          <Menu.Item
+            onPress={() => {
+              retranslate();
+              hideMenu();
+            }}
+            title={getString('translation.chapter.retranslate')}
+            titleStyle={menuTitleStyle}
+          />
+        ) : null}
         <Menu.Item
           onPress={() => {
             deleteTranslation();
@@ -89,6 +94,7 @@ export const TranslateButton: React.FC<TranslateButtonProps> = ({
     <TranslateIconButton
       theme={theme}
       color={theme.outline}
+      label={getString('translation.chapter.translate')}
       onPress={translate}
     />
   );
@@ -97,13 +103,14 @@ export const TranslateButton: React.FC<TranslateButtonProps> = ({
 const TranslateIconButton: React.FC<{
   theme: ThemeColors;
   color: string;
+  label: string;
   onPress: () => void;
-}> = ({ theme, color, onPress }) => (
+}> = ({ theme, color, label, onPress }) => (
   <View style={styles.container}>
     <Pressable
       style={styles.pressable}
       onPress={onPress}
-      accessibilityLabel={getString('translation.chapter.translate')}
+      accessibilityLabel={label}
       android_ripple={{ color: theme.rippleColor }}
     >
       <MaterialCommunityIcons name="translate" size={25} color={color} />

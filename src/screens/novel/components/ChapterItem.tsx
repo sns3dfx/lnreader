@@ -16,6 +16,7 @@ interface ChapterItemProps {
   chapter: ChapterInfo;
   isDownloading?: boolean;
   translationState?: ChapterTranslationState;
+  canTranslate?: boolean;
   isBookmarked?: boolean;
   isSelected?: boolean;
   isLocal: boolean;
@@ -39,6 +40,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
   chapter,
   isDownloading,
   translationState,
+  canTranslate,
   isBookmarked,
   isSelected,
   isLocal,
@@ -218,6 +220,7 @@ const ChapterItem: React.FC<ChapterItemProps> = ({
         {!isLocal && translationState ? (
           <TranslateButton
             state={translationState}
+            canTranslate={canTranslate}
             theme={theme}
             translate={handleTranslate}
             retranslate={handleRetranslate}

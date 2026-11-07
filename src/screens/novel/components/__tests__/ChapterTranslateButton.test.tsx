@@ -55,13 +55,23 @@ const theme = {
   rippleColor: '#777',
 } as any;
 
-const setup = (state: 'none' | 'translating' | 'saved') => {
+const setup = (
+  state: 'none' | 'translating' | 'saved',
+  canTranslate = true,
+) => {
   const handlers = {
     translate: jest.fn(),
     retranslate: jest.fn(),
     deleteTranslation: jest.fn(),
   };
-  render(<TranslateButton state={state} theme={theme} {...handlers} />);
+  render(
+    <TranslateButton
+      state={state}
+      canTranslate={canTranslate}
+      theme={theme}
+      {...handlers}
+    />,
+  );
   return handlers;
 };
 
@@ -83,13 +93,21 @@ describe('TranslateButton', () => {
     const handlers = setup('saved');
     expect(screen.queryByText('translation.chapter.retranslate')).toBeNull();
 
-    fireEvent.press(screen.getByLabelText('translation.chapter.translate'));
+    fireEvent.press(screen.getByLabelText('translation.chapter.options'));
     fireEvent.press(screen.getByText('translation.chapter.retranslate'));
     expect(handlers.retranslate).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(screen.getByLabelText('translation.chapter.translate'));
+    fireEvent.press(screen.getByLabelText('translation.chapter.options'));
     fireEvent.press(screen.getByText('translation.chapter.deleteTranslation'));
     expect(handlers.deleteTranslation).toHaveBeenCalledTimes(1);
     expect(handlers.translate).not.toHaveBeenCalled();
+  });
+
+  it('hides retranslate but keeps delete when there is no key', () => {
+    const handlers = setup('saved', false);
+    fireEvent.press(screen.getByLabelText('translation.chapter.options'));
+    expect(screen.queryByText('translation.chapter.retranslate')).toBeNull();
+    fireEvent.press(screen.getByText('translation.chapter.deleteTranslation'));
+    expect(handlers.deleteTranslation).toHaveBeenCalledTimes(1);
   });
 });

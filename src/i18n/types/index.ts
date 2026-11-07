@@ -653,6 +653,7 @@ export interface StringMap {
   'trackingScreen.revalidate': 'string';
   'trackingScreen.services': 'string';
   'translation.chapter.deleteTranslation': 'string';
+  'translation.chapter.options': 'string';
   'translation.chapter.retranslate': 'string';
   'translation.chapter.translate': 'string';
   'translation.errors.emptyResult': 'string';

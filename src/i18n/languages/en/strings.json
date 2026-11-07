@@ -769,6 +769,7 @@
   "translation": {
     "chapter": {
       "deleteTranslation": "Delete translation",
+      "options": "Translation options",
       "retranslate": "Translate again",
       "translate": "Translate chapter"
     },

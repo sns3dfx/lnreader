@@ -105,6 +105,7 @@ const NovelScreenList = ({
   const theme = useTheme();
   const {
     getState: getTranslationState,
+    canTranslate,
     translate: translateChapter,
     retranslate: retranslateChapter,
     remove: removeTranslation,
@@ -389,6 +390,7 @@ const NovelScreenList = ({
           chapter={item}
           isDownloading={downloadingChapterIds.has(item.id)}
           translationState={getTranslationState(item.id)}
+          canTranslate={canTranslate}
           onTranslateChapter={translateChapter}
           onRetranslateChapter={retranslateChapter}
           onDeleteTranslation={removeTranslation}
@@ -410,6 +412,7 @@ const NovelScreenList = ({
     [
       downloadingChapterIds,
       getTranslationState,
+      canTranslate,
       translateChapter,
       retranslateChapter,
       removeTranslation,

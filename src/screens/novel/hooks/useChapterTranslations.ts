@@ -190,5 +190,11 @@ export function useChapterTranslations() {
     [enabled, pendingIds, savedIds, apiKey],
   );
 
-  return { getState, translate, retranslate, remove };
+  return {
+    getState,
+    canTranslate: !!apiKey,
+    translate,
+    retranslate,
+    remove,
+  };
 }

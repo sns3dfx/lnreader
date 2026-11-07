@@ -70,6 +70,7 @@ jest.mock('@legendapp/list/react-native', () => {
 jest.mock('../../hooks/useChapterTranslations', () => ({
   useChapterTranslations: () => ({
     getState: () => undefined,
+    canTranslate: true,
     translate: jest.fn(),
     retranslate: jest.fn(),
     remove: jest.fn(),

@@ -210,5 +210,11 @@ describe('useChapterTranslations', () => {
     const { result } = renderHook(() => useChapterTranslations());
     await waitFor(() => expect(result.current.getState(2)).toBe('saved'));
     expect(result.current.getState(3)).toBeUndefined();
+    expect(result.current.canTranslate).toBe(false);
+  });
+
+  it('can translate when a key is set', () => {
+    const { result } = renderHook(() => useChapterTranslations());
+    expect(result.current.canTranslate).toBe(true);
   });
 });
