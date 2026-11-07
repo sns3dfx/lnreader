@@ -135,4 +135,41 @@ describe('translateChapter', () => {
     await translateChapter({ ...params, targetLang: 'EN' });
     expect(fetchSrc).toHaveBeenCalledWith('plug', '/c/42');
   });
+
+  describe('multi-batch chapters', () => {
+    const longHtml = [
+      `<p>${'a'.repeat(20000)}</p>`,
+      '<img src="https://x/y.png">',
+      `<p>${'b'.repeat(20000)}</p>`,
+    ].join('');
+
+    it('sends several requests, keeps order and img src', async () => {
+      file.readFile.mockResolvedValue(longHtml);
+      const result = await translateChapter(params);
+
+      expect(translate.mock.calls.length).toBeGreaterThan(1);
+      const sent = translate.mock.calls.flatMap(c => c[1].texts);
+      expect(sent[0]).toBe('Title');
+      expect(sent.slice(1).join('')).toBe(longHtml);
+      expect(result.title).toBe('T:Title');
+      expect(result.html).toBe(
+        sent
+          .slice(1)
+          .map((t: string) => `T:${t}`)
+          .join(''),
+      );
+      expect(result.html).toContain('src="https://x/y.png"');
+      expect(write).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops after a short response in the first batch and saves nothing', async () => {
+      file.readFile.mockResolvedValue(longHtml);
+      translate.mockResolvedValueOnce([]);
+      await expect(translateChapter(params)).rejects.toMatchObject({
+        code: 'empty_result',
+      });
+      expect(translate).toHaveBeenCalledTimes(1);
+      expect(write).not.toHaveBeenCalled();
+    });
+  });
 });

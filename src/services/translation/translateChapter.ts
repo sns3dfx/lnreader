@@ -121,6 +121,9 @@ const run = async (
       targetLang,
       glossaryId,
     });
+    if (result.length !== batch.length) {
+      throw new TranslationError('empty_result');
+    }
     translated.push(...result);
   }
   if (translated.length !== parts.length + 1) {
