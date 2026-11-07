@@ -136,6 +136,11 @@ const navigationPreferences: GeneralPreference[] = [
     label: 'tapToScroll',
     description: 'tapToScrollDescription',
   },
+  {
+    key: 'allowLongPress',
+    label: 'allowLongPress',
+    description: 'allowLongPressDescription',
+  },
 ];
 
 const pagedModePreferences: GeneralPreference[] = [

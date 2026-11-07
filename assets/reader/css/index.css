@@ -14,6 +14,12 @@ html {
   background-color: var(--theme-secondary);
 }
 
+body.no-long-press {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 #text-selection-ui {
   position: fixed;
   z-index: 100000;

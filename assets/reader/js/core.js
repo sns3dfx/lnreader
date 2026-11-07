@@ -703,6 +703,13 @@ window.pageReader = pageReader = new (function () {
 
   van.derive(() => {
     document.body.classList.toggle(
+      'no-long-press',
+      !reader.generalSettings.val.allowLongPress,
+    );
+  });
+
+  van.derive(() => {
+    document.body.classList.toggle(
       'no-animation',
       Boolean(reader.generalSettings.val.pageReaderDisableAnimation),
     );
