@@ -775,7 +775,7 @@
     },
     "errors": {
       "emptyResult": "DeepL returned an empty translation. Nothing was saved.",
-      "glossaryMissing": "The DeepL glossary was not found.",
+      "glossaryMissing": "The DeepL glossary was not found. Upload the glossary again in the novel's translation settings.",
       "invalidKey": "DeepL rejected the API key.",
       "network": "Could not reach DeepL. Check your connection.",
       "quotaExceeded": "The DeepL character quota is used up.",
@@ -805,7 +805,7 @@
     },
     "settings": {
       "apiKey": "DeepL API key",
-      "apiKeyInfo": "Chapters are translated by DeepL only on request. The key is stored on this device and is never included in backups.",
+      "apiKeyInfo": "Chapters are translated by DeepL only on request. The key is stored on this device and is not included in LNReader backups.",
       "charactersRemaining": "%{remaining} of %{limit} characters remaining",
       "checking": "Checking...",
       "clearKey": "Remove key",

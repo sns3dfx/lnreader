@@ -191,7 +191,10 @@ const TranslationSettingsModal = ({
       setTranslation({
         glossaryId,
         glossaries: {
-          ...translation?.glossaries,
+          // A new id means the old glossary is gone, with all its pairs.
+          ...(glossaryId === translation?.glossaryId
+            ? translation?.glossaries
+            : {}),
           [pairKey]: { entryCount: count },
         },
       });

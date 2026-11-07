@@ -39,6 +39,8 @@ export interface GlossaryDictionaryRequest {
   tsv: string;
 }
 
+const REQUEST_TIMEOUT_MS = 60000;
+
 export const getDeepLBaseUrl = (apiKey: string): string =>
   apiKey.endsWith(':fx')
     ? 'https://api-free.deepl.com'
@@ -69,31 +71,42 @@ const request = async (
   body?: unknown,
   glossarySent = false,
 ): Promise<any> => {
-  let response: Response;
+  // RN's OkHttp client has every timeout at 0: a stalled connection never settles.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    response = await fetch(`${getDeepLBaseUrl(apiKey)}${path}`, {
-      method,
-      headers: {
-        Authorization: `DeepL-Auth-Key ${apiKey}`,
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new TranslationError('network');
-  }
+    let response: Response;
+    try {
+      response = await fetch(`${getDeepLBaseUrl(apiKey)}${path}`, {
+        method,
+        headers: {
+          Authorization: `DeepL-Auth-Key ${apiKey}`,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch {
+      throw new TranslationError('network');
+    }
 
-  if (!response.ok) {
-    throw new TranslationError(
-      statusToCode(response.status, glossarySent),
-      `DeepL request failed with HTTP ${response.status}`,
-    );
-  }
+    if (!response.ok) {
+      throw new TranslationError(
+        statusToCode(response.status, glossarySent),
+        `DeepL request failed with HTTP ${response.status}`,
+      );
+    }
 
-  try {
-    return await response.json();
-  } catch {
-    return {};
+    try {
+      return await response.json();
+    } catch {
+      if (controller.signal.aborted) {
+        throw new TranslationError('network');
+      }
+      return {};
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 };
 
@@ -101,6 +114,13 @@ export const checkDeepLKey = async (
   apiKey: string,
 ): Promise<{ characterCount: number; characterLimit: number }> => {
   const data = await request(apiKey, 'GET', '/v2/usage');
+  // A captive portal answers 2xx too, and that must not save an unverified key.
+  if (
+    typeof data?.character_count !== 'number' ||
+    typeof data?.character_limit !== 'number'
+  ) {
+    throw new TranslationError('unknown');
+  }
   return {
     characterCount: data.character_count,
     characterLimit: data.character_limit,
@@ -166,13 +186,21 @@ export const upsertGlossaryDictionary = async (
   };
 
   if (glossaryId) {
-    await request(
-      apiKey,
-      'PUT',
-      `/v3/glossaries/${encodeURIComponent(glossaryId)}/dictionaries`,
-      dictionary,
-    );
-    return glossaryId;
+    try {
+      await request(
+        apiKey,
+        'PUT',
+        `/v3/glossaries/${encodeURIComponent(glossaryId)}/dictionaries`,
+        dictionary,
+        true,
+      );
+      return glossaryId;
+    } catch (e) {
+      // Deleted at DeepL: only a new glossary can replace the stored id.
+      if (!(e instanceof TranslationError && e.code === 'glossary_missing')) {
+        throw e;
+      }
+    }
   }
 
   const data = await request(apiKey, 'POST', '/v3/glossaries', {

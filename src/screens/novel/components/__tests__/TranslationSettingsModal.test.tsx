@@ -260,6 +260,33 @@ describe('TranslationSettingsModal', () => {
     });
   });
 
+  it('drops the pairs of a dead glossary when DeepL returns a new id', async () => {
+    mockTranslation = {
+      sourceLang: 'de',
+      targetLang: 'en',
+      showTranslation: false,
+      glossaryId: 'gloss-dead',
+      glossaries: {
+        'ja-en': { entryCount: 2 },
+        'de-en': { entryCount: 5 },
+      },
+    };
+    pickFile('Held\tHero');
+    jest.mocked(upsertGlossaryDictionary).mockResolvedValue('gloss-new');
+    renderModal();
+
+    fireEvent.press(
+      await screen.findByText('translation.novel.uploadGlossary'),
+    );
+
+    await waitFor(() =>
+      expect(mockSetTranslation).toHaveBeenCalledWith({
+        glossaryId: 'gloss-new',
+        glossaries: { 'de-en': { entryCount: 1 } },
+      }),
+    );
+  });
+
   it('shows a hint to add the key when none is set', () => {
     mockKey = undefined;
     renderModal();
