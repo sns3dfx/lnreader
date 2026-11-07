@@ -38,11 +38,14 @@
 ### Task 1: Клиент DeepL
 
 **Files:**
+
 - Create: `src/services/translation/deeplClient.ts`
 - Test: `src/services/translation/__tests__/deeplClient.test.ts`
 
 **Interfaces:**
+
 - Produces:
+
   - `type TranslationErrorCode = 'invalid_key' | 'quota_exceeded' | 'rate_limited' | 'glossary_missing' | 'network' | 'empty_result' | 'unknown'`
   - `class TranslationError extends Error { code: TranslationErrorCode }`
   - `interface DeepLLanguage { code: string; name: string; source: boolean; target: boolean }`
@@ -99,13 +102,16 @@ git commit -m "feat: Add DeepL Client For Chapter Translation"
 ### Task 2: Файл словаря и хранение переводов
 
 **Files:**
+
 - Create: `src/services/translation/glossaryFile.ts`
 - Create: `src/services/translation/translationStorage.ts`
 - Test: `src/services/translation/__tests__/glossaryFile.test.ts`
 - Test: `src/services/translation/__tests__/translationStorage.test.ts`
 
 **Interfaces:**
+
 - Produces:
+
   - `class GlossaryFileError extends Error { code: 'empty' | 'bad_line' | 'duplicate'; line?: number }`
   - `parseGlossaryTsv(content: string): { entryCount: number; tsv: string }`
   - `interface SavedTranslation { html: string; title: string; glossaryId?: string; createdAt: string }`
@@ -159,12 +165,15 @@ git commit -m "feat: Add Glossary Parsing And Translation Storage"
 ### Task 3: Перевод главы
 
 **Files:**
+
 - Create: `src/services/translation/translateChapter.ts`
 - Test: `src/services/translation/__tests__/translateChapter.test.ts`
 
 **Interfaces:**
+
 - Consumes: `translateTexts`, `TranslationError`, `readTranslation`, `writeTranslation`, `SavedTranslation`, `fetchChapter` из `@services/plugin/fetch`.
 - Produces:
+
   - `splitChapterHtml(html: string, maxChars?: number): string[]`, по умолчанию `maxChars = 30000` (лимит DeepL 128 KiB, до 3 байт на символ, плюс запас)
   - `translateChapter(params: { apiKey: string; pluginId: string; novelId: number; chapter: { id: number; path: string; name: string }; sourceLang: string; targetLang: string; glossaryId?: string; force?: boolean }): Promise<SavedTranslation>`
 
@@ -209,6 +218,7 @@ git commit -m "feat: Translate And Store Chapters"
 ### Task 4: Ключ DeepL и экран настроек
 
 **Files:**
+
 - Create: `src/hooks/persisted/useDeepLKey.ts`
 - Create: `src/services/translation/translationErrorMessage.ts`
 - Create: `src/screens/settings/SettingsTranslationScreen.tsx`
@@ -221,8 +231,10 @@ git commit -m "feat: Translate And Store Chapters"
 - Test: `src/screens/settings/__tests__/SettingsTranslationScreen.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `checkDeepLKey`, `TranslationError`.
 - Produces:
+
   - `DEEPL_API_KEY = 'DEEPL_API_KEY'`
   - `getDeepLApiKey(): string | undefined`
   - `useDeepLKey(): { apiKey: string | undefined; setApiKey: (key: string) => void; clearApiKey: () => void }`
@@ -265,6 +277,7 @@ git commit -m "feat: Add DeepL Key Settings Excluded From Backups"
 ### Task 5: Настройки перевода книги
 
 **Files:**
+
 - Modify: `src/hooks/persisted/useNovel/types.ts` (`NovelSettingsWithoutSort.translation?`)
 - Modify: `src/hooks/persisted/useNovelSettings.ts`
 - Create: `src/screens/novel/components/TranslationSettingsModal.tsx`
@@ -275,14 +288,16 @@ git commit -m "feat: Add DeepL Key Settings Excluded From Backups"
 - Test: `src/screens/novel/components/__tests__/TranslationSettingsModal.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `listDeepLLanguages`, `upsertGlossaryDictionary`, `parseGlossaryTsv`, `GlossaryFileError`, `useDeepLKey`, `translationErrorMessage`.
 - Produces:
+
   - ```ts
     interface NovelTranslationSettings {
-      sourceLang: string;      // код DeepL в нижнем регистре или 'auto'
-      targetLang: string;      // код DeepL в нижнем регистре
+      sourceLang: string; // код DeepL в нижнем регистре или 'auto'
+      targetLang: string; // код DeepL в нижнем регистре
       showTranslation: boolean;
-      glossaryId?: string;     // один словарь на книгу
+      glossaryId?: string; // один словарь на книгу
       glossaries: Record<string, { entryCount: number }>; // ключ `${source}-${target}`
     }
     ```
@@ -327,6 +342,7 @@ git commit -m "feat: Add Per Novel Translation Settings And Glossary Upload"
 ### Task 6: Читалка
 
 **Files:**
+
 - Modify: `src/screens/reader/hooks/useChapter.ts`
 - Modify: `src/screens/reader/components/ReaderAppbar.tsx`
 - Modify: `src/components/IconButtonV2/IconButtonV2.tsx` (добавить `onLongPress?`)
@@ -336,8 +352,10 @@ git commit -m "feat: Add Per Novel Translation Settings And Glossary Upload"
 - Test: `src/screens/reader/components/__tests__/ReaderAppbar.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `translateChapter`, `readTranslation`, `getGlossaryIdForPair`, `getDeepLApiKey`, `translationErrorMessage`, `TranslationSettingsModal`, `setTranslation`.
 - Produces в `chapterContext`:
+
   - `translating: boolean`
   - `showingTranslation: boolean`
   - `translationAvailable: boolean` — есть ключ или сохранённый перевод текущей главы
@@ -409,6 +427,7 @@ git commit -m "feat: Add Translation Toggle To The Reader"
 ### Task 7: Кнопка перевода в списке глав
 
 **Files:**
+
 - Create: `src/screens/novel/hooks/useChapterTranslations.ts`
 - Create: `src/screens/novel/components/Chapter/ChapterTranslateButton.tsx`
 - Modify: `src/screens/novel/components/ChapterItem.tsx`
@@ -419,8 +438,10 @@ git commit -m "feat: Add Translation Toggle To The Reader"
 - Test: `src/screens/novel/components/__tests__/ChapterTranslateButton.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `translateChapter`, `deleteTranslation`, `listTranslatedChapterIds`, `getGlossaryIdForPair`, `getDeepLApiKey`, `translationErrorMessage`, `useNovelSettings().translation`.
 - Produces:
+
   - `type ChapterTranslationState = 'none' | 'translating' | 'saved'`
   - `useChapterTranslations(): { getState: (chapterId: number) => ChapterTranslationState | undefined; translate: (chapter: ChapterInfo) => void; retranslate: (chapter: ChapterInfo) => void; remove: (chapter: ChapterInfo) => void }`
   - `getState` возвращает `undefined`, когда кнопку показывать не надо: языки не заданы, или нет ключа и нет сохранённого перевода.
@@ -472,6 +493,7 @@ git commit -m "feat: Add Chapter Translate Button To The Chapter List"
 Задача вне кода приложения: файлы не коммитятся, скрипты остаются во временной папке.
 
 **Files:**
+
 - Create: `doomsday-jigsaw-zh-ru.tsv` вне репозитория, затем на телефон в `/sdcard/Download/`
 
 - [ ] **Step 1: Собрать имена**
@@ -509,6 +531,7 @@ Expected: всё зелёное. Если падает, исправить в з
 - [ ] **Step 2: Ручная проверка на Pixel `4B151FDAS001PT`**
 
 Собрать приложение по `CONTRIBUTING.md`. Сценарий:
+
 1. Ввести новый ключ в настройках.
 2. Добавить книгу из Quanben, задать китайский → русский, загрузить словарь.
 3. Перевести главу 1 кнопкой в списке, открыть её и переключить туда-обратно.
