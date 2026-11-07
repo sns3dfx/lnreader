@@ -11,6 +11,7 @@ import { useAppSettings, useTheme } from '@hooks/persisted';
 import JumpToChapterModal from './components/JumpToChapterModal';
 import { Actionbar } from '../../components/Actionbar/Actionbar';
 import EditInfoModal from './components/EditInfoModal';
+import TranslationSettingsModal from './components/TranslationSettingsModal';
 import DownloadCustomChapterModal from './components/DownloadCustomChapterModal';
 import { useBoolean } from '@hooks';
 import NovelScreenLoading from './components/LoadingAnimation/NovelScreenLoading';
@@ -70,6 +71,11 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
   const chapterListRef = useRef<LegendListRef | null>(null);
 
   const deleteDownloadsSnackbar = useBoolean();
+  const {
+    value: translationModalVisible,
+    setTrue: showTranslationModal,
+    setFalse: hideTranslationModal,
+  } = useBoolean();
   const {
     value: setCategoriesModalVisible,
     setTrue: showSetCategoriesModal,
@@ -150,6 +156,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
               deleteChapters={deleteDownloadedChapters}
               downloadChapters={downloadAvailableChapters}
               showEditInfoModal={showEditInfoModal}
+              showTranslationModal={showTranslationModal}
               setCustomNovelCover={setCustomNovelCover}
               downloadCustomChapterModal={openDlChapterModal}
               showJumpToChapterModal={showJumpToChapterModal}
@@ -253,6 +260,11 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
                 hideModal={hideEditInfoModal}
                 novel={novel}
                 setNovel={setNovel}
+                theme={theme}
+              />
+              <TranslationSettingsModal
+                visible={translationModalVisible}
+                onDismiss={hideTranslationModal}
                 theme={theme}
               />
               <DownloadCustomChapterModal

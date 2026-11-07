@@ -776,6 +776,21 @@
       "rateLimited": "Too many requests to DeepL. Try again in a moment.",
       "unknown": "Translation failed."
     },
+    "novel": {
+      "autoDetect": "Auto-detect",
+      "glossary": "Glossary",
+      "glossaryBadLine": "Line %{line} must have exactly two non-empty columns separated by a tab.",
+      "glossaryDuplicate": "Line %{line} repeats a source term.",
+      "glossaryEmpty": "The glossary file has no entries.",
+      "glossaryEntries": "%{count} entries for this language pair",
+      "glossaryNeedsSource": "Choose a source language (not auto-detect) to upload a glossary.",
+      "glossaryUploaded": "Glossary uploaded",
+      "noKey": "Add your DeepL API key in Settings, Translation to load languages.",
+      "sourceLanguage": "Source language",
+      "targetLanguage": "Target language",
+      "title": "Translation",
+      "uploadGlossary": "Upload glossary (TSV)"
+    },
     "settings": {
       "apiKey": "DeepL API key",
       "apiKeyInfo": "Chapters are translated by DeepL only on request. The key is stored on this device and is never included in backups.",
