@@ -140,6 +140,11 @@ export default function useChapter(
    */
   const translationWantedRef = useRef(false);
   const translationOnScreenRef = useRef(false);
+  /**
+   * A press to hide still running. It writes the mode only once the original has
+   * loaded, so a load that replaces it has to write the mode in its place.
+   */
+  const pendingHideRef = useRef(false);
 
   useEffect(() => {
     chapterRef.current = chapter;
@@ -461,6 +466,13 @@ export default function useChapter(
       const requested = navChapter ?? chapterRef.current;
       openingChapterRef.current = navChapter;
 
+      if (press) {
+        pendingHideRef.current = press === 'hide';
+      } else if (pendingHideRef.current) {
+        pendingHideRef.current = false;
+        storeTranslationMode(false);
+      }
+
       const settings = translationRef.current;
       // A press to hide runs as if the mode were off, but the mode itself is only
       // written once the original has loaded: see below.
@@ -560,6 +572,7 @@ export default function useChapter(
         // not hide the indicator of the translation that replaced it.
         if (!isStale()) {
           openingChapterRef.current = undefined;
+          pendingHideRef.current = false;
           translationWantedRef.current = translationOnScreenRef.current;
           setTranslating(false);
           // A press that ends without a translation leaves the mode off, or it
@@ -783,9 +796,10 @@ export default function useChapter(
       translating,
       showingTranslation,
       translationAvailable:
-        Boolean(apiKey) ||
-        translationSaved ||
-        Boolean(translation?.showTranslation),
+        !novel.isLocal &&
+        (Boolean(apiKey) ||
+          translationSaved ||
+          Boolean(translation?.showTranslation)),
       translatedTitle,
       toggleTranslation,
       canAutoAdvance,
@@ -812,6 +826,7 @@ export default function useChapter(
       chapterText,
       translating,
       showingTranslation,
+      novel.isLocal,
       apiKey,
       translationSaved,
       translation?.showTranslation,

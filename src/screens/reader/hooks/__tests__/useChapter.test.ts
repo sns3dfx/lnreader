@@ -654,6 +654,26 @@ describe('useChapter', () => {
       expect(result.current.translationAvailable).toBe(false);
     });
 
+    it('offers no button on a local novel', async () => {
+      mockApiKey = 'key';
+      mockTranslation = translationSettings();
+      mockReadTranslation.mockResolvedValue(savedTranslation());
+      const store = createStore();
+      mockUseNovelActions.mockReturnValue(store.state);
+
+      const { result } = renderHook(() =>
+        useChapter({ current: null }, initialChapter, {
+          ...novel,
+          isLocal: true,
+        }),
+      );
+
+      await waitFor(() =>
+        expect(result.current.chapterContext.loading).toBe(false),
+      );
+      expect(result.current.chapterContext.translationAvailable).toBe(false);
+    });
+
     it('keeps the button while the mode is on after the key is removed', async () => {
       mockTranslation = translationSettings();
 
@@ -779,6 +799,152 @@ describe('useChapter', () => {
       expect(result.current.translating).toBe(false);
       expect(mockSetTranslation).toHaveBeenCalledWith({
         showTranslation: false,
+      });
+    });
+
+    describe('press to hide superseded by another load', () => {
+      const savedOnlyForFirstChapter = async ({
+        chapterId,
+      }: {
+        chapterId: number;
+      }) => (chapterId === initialChapter.id ? savedTranslation() : undefined);
+
+      it('opens the next chapter as the original without calling DeepL', async () => {
+        mockApiKey = 'key';
+        mockTranslation = translationSettings();
+        mockReadTranslation.mockImplementation(savedOnlyForFirstChapter);
+        const deferredOriginal = createDeferred<string>();
+        mockFetchChapter.mockImplementation(
+          async (_pluginId: string, path: string) =>
+            path === nextChapter.path ? 'next body' : deferredOriginal.promise,
+        );
+
+        const { result } = await renderLoaded();
+
+        act(() => {
+          result.current.toggleTranslation();
+        });
+        await waitFor(() => expect(result.current.translating).toBe(true));
+        expect(mockTranslation?.showTranslation).toBe(true);
+
+        await act(async () => {
+          await result.current.getChapter(nextChapter);
+        });
+
+        expect(mockTranslateChapter).not.toHaveBeenCalled();
+        expect(result.current.chapter.id).toBe(nextChapter.id);
+        expect(result.current.chapterText).toBe('SANITIZED:next body');
+        expect(result.current.showingTranslation).toBe(false);
+        expect(result.current.translating).toBe(false);
+        expect(mockTranslation?.showTranslation).toBe(false);
+
+        await act(async () => {
+          deferredOriginal.resolve('old body');
+        });
+
+        expect(result.current.chapter.id).toBe(nextChapter.id);
+        expect(result.current.chapterText).toBe('SANITIZED:next body');
+      });
+
+      it('stays off through a second navigation', async () => {
+        mockApiKey = 'key';
+        mockTranslation = translationSettings();
+        mockReadTranslation.mockImplementation(savedOnlyForFirstChapter);
+        const deferredOriginal = createDeferred<string>();
+        mockFetchChapter.mockImplementation(
+          async (_pluginId: string, path: string) =>
+            path === initialChapter.path
+              ? deferredOriginal.promise
+              : 'other body',
+        );
+        const thirdChapter = makeChapter(3, '1');
+
+        const { result } = await renderLoaded();
+
+        await act(async () => {
+          result.current.toggleTranslation();
+          void result.current.getChapter(nextChapter);
+          await result.current.getChapter(thirdChapter);
+        });
+
+        expect(mockTranslateChapter).not.toHaveBeenCalled();
+        expect(result.current.chapter.id).toBe(thirdChapter.id);
+        expect(mockTranslation?.showTranslation).toBe(false);
+      });
+
+      it('keeps the mode off when the chapter it navigated to fails', async () => {
+        mockApiKey = 'key';
+        mockTranslation = translationSettings();
+        mockReadTranslation.mockImplementation(savedOnlyForFirstChapter);
+        mockFetchChapter.mockImplementation(
+          async (_pluginId: string, path: string) => {
+            if (path === nextChapter.path) {
+              throw new Error('offline');
+            }
+            return createDeferred<string>().promise;
+          },
+        );
+
+        const { result } = await renderLoaded();
+
+        act(() => {
+          result.current.toggleTranslation();
+        });
+        await act(async () => {
+          await result.current.getChapter(nextChapter);
+        });
+
+        expect(result.current.error).toBe('offline');
+        expect(mockTranslateChapter).not.toHaveBeenCalled();
+        expect(mockTranslation?.showTranslation).toBe(false);
+      });
+
+      it('leaves the mode on when a press to show replaced the press to hide', async () => {
+        mockApiKey = 'key';
+        mockTranslation = translationSettings();
+        mockReadTranslation.mockImplementation(savedOnlyForFirstChapter);
+        mockTranslateChapter.mockResolvedValue(savedTranslation(2));
+
+        const { result } = await renderLoaded();
+
+        await act(async () => {
+          result.current.toggleTranslation();
+          result.current.toggleTranslation();
+          await result.current.getChapter(nextChapter);
+        });
+
+        expect(mockTranslateChapter).toHaveBeenCalledTimes(1);
+        expect(result.current.showingTranslation).toBe(true);
+        expect(mockTranslation?.showTranslation).toBe(true);
+      });
+
+      it('does not carry a failed press over to the next navigation', async () => {
+        mockApiKey = 'key';
+        mockTranslation = translationSettings();
+        mockReadTranslation.mockImplementation(savedOnlyForFirstChapter);
+        mockFetchChapter.mockRejectedValueOnce(new Error('offline'));
+        mockTranslateChapter.mockResolvedValue(savedTranslation(2));
+
+        const { result } = await renderLoaded();
+
+        await act(async () => {
+          result.current.toggleTranslation();
+        });
+        await waitFor(() =>
+          expect(mockShowToast).toHaveBeenCalledWith(
+            getString('translation.reader.originalUnavailable'),
+          ),
+        );
+        expect(result.current.showingTranslation).toBe(true);
+        expect(mockTranslation?.showTranslation).toBe(true);
+
+        await act(async () => {
+          await result.current.getChapter(nextChapter);
+        });
+
+        expect(mockTranslateChapter).toHaveBeenCalledTimes(1);
+        expect(result.current.showingTranslation).toBe(true);
+        expect(mockTranslation?.showTranslation).toBe(true);
       });
     });
 
