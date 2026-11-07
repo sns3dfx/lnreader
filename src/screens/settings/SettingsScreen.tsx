@@ -84,6 +84,16 @@ const SettingsScreen = ({ navigation }: SettingsScreenProps) => {
           theme={theme}
         />
         <List.Item
+          title={getString('translation.settings.title')}
+          icon="translate"
+          onPress={() =>
+            navigation.navigate('SettingsStack', {
+              screen: 'TranslationSettings',
+            })
+          }
+          theme={theme}
+        />
+        <List.Item
           title={getString('common.backup')}
           icon="cloud-upload-outline"
           onPress={() =>
