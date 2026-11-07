@@ -84,6 +84,37 @@ describe('translateChapter', () => {
     }
   });
 
+  describe('whitespace between top-level nodes', () => {
+    const big = `<p>${'x'.repeat(40)}</p>`;
+    const other = `<p>${'y'.repeat(40)}</p>`;
+    const isBlankPart = (part: string) => !part.replace(/&nbsp;/g, ' ').trim();
+
+    it.each([
+      ['trailing', `${big}\n`, 1],
+      ['leading', `\n${big}`, 1],
+      ['leading and trailing', `\n  ${big}\n\n`, 1],
+      ['separating', `${big}\n${other}`, 2],
+      ['surrounding', `\n${big}\n${other}\n`, 2],
+      ['non-breaking', `${big}\u00a0`, 1],
+    ])('attaches %s whitespace to a part', (_name, html, count) => {
+      const parts = splitChapterHtml(html, 30);
+
+      expect(parts).toHaveLength(count);
+      expect(parts.some(isBlankPart)).toBe(false);
+      expect(parts.join('').replace(/&nbsp;/g, '\u00a0')).toBe(html);
+    });
+
+    it('sends no blank part to DeepL for a chapter over the limit', async () => {
+      const long = `<p>${'x'.repeat(30001)}</p>`;
+      file.readFile.mockResolvedValue(`${long}\n`);
+
+      await translateChapter(params);
+
+      const texts = translate.mock.calls.flatMap(([, body]) => body.texts);
+      expect(texts).toEqual(['Title', `${long}\n`]);
+    });
+  });
+
   it('shares one request between concurrent calls for the same chapter and pair', async () => {
     const [a, b] = await Promise.all([
       translateChapter(params),

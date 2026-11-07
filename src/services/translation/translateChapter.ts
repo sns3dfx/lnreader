@@ -30,13 +30,23 @@ export const splitChapterHtml = (
   const $ = cheerio.load(html, null, false);
   const parts: string[] = [];
   let current = '';
+  let hasContent = false;
   for (const node of $.root().contents().toArray()) {
     const piece = $.html(node);
-    if (current && current.length + piece.length > maxChars) {
+    // A blank part comes back blank, which fails the whole chapter after DeepL
+    // has billed the others, so whitespace always stays with a neighbour.
+    const isWhitespace = node.type === 'text' && !$(node).text().trim();
+    if (
+      !isWhitespace &&
+      hasContent &&
+      current.length + piece.length > maxChars
+    ) {
       parts.push(current);
       current = '';
+      hasContent = false;
     }
     current += piece;
+    hasContent = hasContent || !isWhitespace;
   }
   if (current) {
     parts.push(current);
