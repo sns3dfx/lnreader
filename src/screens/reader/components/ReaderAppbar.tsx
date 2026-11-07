@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import color from 'color';
 
 import { Text } from 'react-native-paper';
@@ -13,6 +13,8 @@ import { ThemeColors } from '@theme/types';
 import { bookmarkChapter } from '@database/queries/ChapterQueries';
 import { useChapterContext } from '../ChapterContext';
 import { useNovelLayout } from '@screens/novel/NovelContext';
+import TranslationSettingsModal from '@screens/novel/components/TranslationSettingsModal';
+import { useNovelSettings } from '@hooks/persisted/useNovelSettings';
 import ReaderSearchbar from './ReaderSearchbar';
 import { ReaderSearchResult } from '../types';
 import { getString } from '@i18n/translations';
@@ -52,9 +54,30 @@ const ReaderAppbar = ({
   openInBrowser,
   shareChapter,
 }: ReaderAppbarProps) => {
-  const { chapter, novel, refetch } = useChapterContext();
+  const {
+    chapter,
+    novel,
+    refetch,
+    translating,
+    showingTranslation,
+    translationAvailable,
+    translatedTitle,
+    toggleTranslation,
+  } = useChapterContext();
+  const { translation } = useNovelSettings();
   const { statusBarHeight } = useNovelLayout();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [translationSettingsVisible, setTranslationSettingsVisible] =
+    useState(false);
+
+  const openTranslationSettings = useCallback(
+    () => setTranslationSettingsVisible(true),
+    [],
+  );
+  const closeTranslationSettings = useCallback(
+    () => setTranslationSettingsVisible(false),
+    [],
+  );
 
   const runMenuAction = useCallback((action: () => void) => {
     setMenuVisible(false);
@@ -131,9 +154,34 @@ const ReaderAppbar = ({
             style={[styles.subtitle, { color: theme.onSurfaceVariant }]}
             numberOfLines={1}
           >
-            {chapter.name}
+            {translatedTitle ?? chapter.name}
           </Text>
         </View>
+        {translationAvailable && translating ? (
+          <View style={styles.translationProgress}>
+            <ActivityIndicator
+              accessibilityLabel={getString('translation.reader.translating')}
+              color={theme.primary}
+              size="small"
+            />
+          </View>
+        ) : null}
+        {translationAvailable && !translating ? (
+          <IconButtonV2
+            accessibilityLabel={getString('translation.reader.toggle')}
+            name="translate"
+            size={24}
+            padding={12}
+            onPress={
+              translation?.targetLang
+                ? toggleTranslation
+                : openTranslationSettings
+            }
+            onLongPress={openTranslationSettings}
+            color={showingTranslation ? theme.primary : theme.onSurface}
+            theme={theme}
+          />
+        ) : null}
         <IconButtonV2
           name={searchVisible ? 'close' : 'magnify'}
           size={24}
@@ -197,6 +245,11 @@ const ReaderAppbar = ({
           resetSearch={resetSearch}
         />
       ) : null}
+      <TranslationSettingsModal
+        visible={translationSettingsVisible}
+        onDismiss={closeTranslationSettings}
+        theme={theme}
+      />
     </Animated.View>
   );
 };
@@ -230,5 +283,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     lineHeight: 24,
+  },
+  translationProgress: {
+    alignItems: 'center',
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
   },
 });

@@ -791,6 +791,11 @@
       "title": "Translation",
       "uploadGlossary": "Upload glossary (TSV)"
     },
+    "reader": {
+      "autoAdvanceStopped": "Reading stopped: the next chapter is not translated yet.",
+      "toggle": "Switch between original and translation",
+      "translating": "Translating"
+    },
     "settings": {
       "apiKey": "DeepL API key",
       "apiKeyInfo": "Chapters are translated by DeepL only on request. The key is stored on this device and is never included in backups.",

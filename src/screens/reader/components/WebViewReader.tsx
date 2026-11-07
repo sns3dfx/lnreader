@@ -11,6 +11,7 @@ import color from 'color';
 
 import { useTheme } from '@hooks/persisted';
 import { getString } from '@i18n/translations';
+import { showToast } from '@utils/showToast';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
@@ -135,6 +136,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
     chapter,
     chapterText: html,
     navigateChapter,
+    canAutoAdvance,
     saveProgress,
     nextChapter,
     prevChapter,
@@ -569,11 +571,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
               refetch();
               break;
             case 'next':
-              nextChapterScreenVisible.current = true;
-              if (event.autoStartTTS) {
-                autoStartTTSRef.current = true;
+              if (!event.autoStartTTS) {
+                nextChapterScreenVisible.current = true;
+                navigateChapter('NEXT');
+                break;
               }
-              navigateChapter('NEXT');
+              void canAutoAdvance().then(allowed => {
+                if (!allowed) {
+                  showToast(getString('translation.reader.autoAdvanceStopped'));
+                  webViewRef.current?.injectJavaScript(
+                    'window.tts?.stop?.(); true;',
+                  );
+                  return;
+                }
+                nextChapterScreenVisible.current = true;
+                autoStartTTSRef.current = true;
+                navigateChapter('NEXT');
+              });
               break;
             case 'prev':
               if (event.autoStartTTS) {
