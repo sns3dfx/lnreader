@@ -12,11 +12,20 @@ export const defaultNovelSettings: NovelSettingsWithoutSort = {
 
 export const defaultPageIndex = 0;
 
+export interface NovelTranslationSettings {
+  sourceLang: string;
+  targetLang: string;
+  showTranslation: boolean;
+  glossaryId?: string;
+  glossaries: Record<string, { entryCount: number }>;
+}
+
 export interface NovelSettingsWithoutSort {
   filter: ChapterFilterKey[];
   showChapterTitles: boolean;
   sort?: ChapterOrderKey;
   excludedScanlators?: string[];
+  translation?: NovelTranslationSettings;
 }
 export interface NovelSettings extends NovelSettingsWithoutSort {
   sort: ChapterOrderKey;

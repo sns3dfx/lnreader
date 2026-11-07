@@ -11,6 +11,7 @@ import color from 'color';
 
 import { useTheme } from '@hooks/persisted';
 import { getString } from '@i18n/translations';
+import { showToast } from '@utils/showToast';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { MMKVStorage, getMMKVObject } from '@utils/mmkv/mmkv';
@@ -135,6 +136,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
     chapter,
     chapterText: html,
     navigateChapter,
+    canAutoAdvance,
     saveProgress,
     nextChapter,
     prevChapter,
@@ -169,6 +171,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
   const nextChapterScreenVisible = useRef<boolean>(false);
   const autoStartTTSRef = useRef<boolean>(false);
   const activeChapterIdRef = useRef(chapter.id);
+  const activeTextRef = useRef(html);
   const adjacentChapterScriptRef = useRef(buildAdjacentChapterScript());
   const {
     command: runTtsCommand,
@@ -225,12 +228,18 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
     }
   }, [ttsProgress, webViewRef]);
 
+  // The text also changes within a chapter when the translation is toggled, and
+  // the native queue would otherwise keep reading what is no longer shown.
   useEffect(() => {
-    if (activeChapterIdRef.current !== chapter.id) {
+    if (
+      activeChapterIdRef.current !== chapter.id ||
+      activeTextRef.current !== html
+    ) {
       activeChapterIdRef.current = chapter.id;
+      activeTextRef.current = html;
       runTtsCommand('stop');
     }
-  }, [chapter.id, runTtsCommand]);
+  }, [chapter.id, html, runTtsCommand]);
 
   useEffect(() => {
     const script = buildAdjacentChapterScript(nextChapter, prevChapter);
@@ -569,11 +578,23 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
               refetch();
               break;
             case 'next':
-              nextChapterScreenVisible.current = true;
-              if (event.autoStartTTS) {
-                autoStartTTSRef.current = true;
+              if (!event.autoStartTTS) {
+                nextChapterScreenVisible.current = true;
+                navigateChapter('NEXT');
+                break;
               }
-              navigateChapter('NEXT');
+              void canAutoAdvance().then(allowed => {
+                if (!allowed) {
+                  showToast(getString('translation.reader.autoAdvanceStopped'));
+                  webViewRef.current?.injectJavaScript(
+                    'window.tts?.stop?.(); true;',
+                  );
+                  return;
+                }
+                nextChapterScreenVisible.current = true;
+                autoStartTTSRef.current = true;
+                navigateChapter('NEXT');
+              });
               break;
             case 'prev':
               if (event.autoStartTTS) {

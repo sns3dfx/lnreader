@@ -766,6 +766,54 @@
     "revalidate": "Revalidate",
     "services": "Services"
   },
+  "translation": {
+    "chapter": {
+      "deleteTranslation": "Delete translation",
+      "options": "Translation options",
+      "retranslate": "Translate again",
+      "translate": "Translate chapter"
+    },
+    "errors": {
+      "emptyResult": "DeepL returned an empty translation. Nothing was saved.",
+      "glossaryMissing": "The DeepL glossary was not found. Upload the glossary again in the novel's translation settings.",
+      "invalidKey": "DeepL rejected the API key.",
+      "network": "Could not reach DeepL. Check your connection.",
+      "quotaExceeded": "The DeepL character quota is used up.",
+      "rateLimited": "Too many requests to DeepL. Try again in a moment.",
+      "unknown": "Translation failed."
+    },
+    "novel": {
+      "autoDetect": "Auto-detect",
+      "glossary": "Glossary",
+      "glossaryBadLine": "Line %{line} must have exactly two non-empty columns separated by a tab.",
+      "glossaryDuplicate": "Line %{line} repeats a source term.",
+      "glossaryEmpty": "The glossary file has no entries.",
+      "glossaryEntries": "%{count} entries for this language pair",
+      "glossaryNeedsSource": "Choose a source language (not auto-detect) to upload a glossary.",
+      "glossaryUploaded": "Glossary uploaded",
+      "noKey": "Add your DeepL API key in Settings, Translation to load languages.",
+      "sourceLanguage": "Source language",
+      "targetLanguage": "Target language",
+      "title": "Translation",
+      "uploadGlossary": "Upload glossary (TSV)"
+    },
+    "reader": {
+      "autoAdvanceStopped": "Reading stopped: the next chapter is not translated yet.",
+      "originalUnavailable": "Could not load the original chapter.",
+      "toggle": "Switch between original and translation",
+      "translating": "Translating"
+    },
+    "settings": {
+      "apiKey": "DeepL API key",
+      "apiKeyInfo": "Chapters are translated by DeepL only on request. The key is stored on this device and is not included in LNReader backups.",
+      "charactersRemaining": "%{remaining} of %{limit} characters remaining",
+      "checking": "Checking...",
+      "clearKey": "Remove key",
+      "keySaved": "DeepL key saved",
+      "saveKey": "Check and save",
+      "title": "Translation"
+    }
+  },
   "updates": "Updates",
   "updatesScreen": {
     "deletedChapters": "Deleted %{num} chapters",

@@ -1,0 +1,206 @@
+import NativeFile from '@modules/native-file';
+import { NOVEL_STORAGE } from '@utils/Storages';
+import { fetchChapter } from '@services/plugin/fetch';
+import { TranslationError, translateTexts } from '../deeplClient';
+import { readTranslation, writeTranslation } from '../translationStorage';
+import { splitChapterHtml, translateChapter } from '../translateChapter';
+
+jest.mock('../deeplClient', () => ({
+  ...jest.requireActual('../deeplClient'),
+  translateTexts: jest.fn(),
+}));
+jest.mock('../translationStorage');
+jest.mock('@services/plugin/fetch', () => ({ fetchChapter: jest.fn() }));
+
+const file = NativeFile as jest.Mocked<typeof NativeFile>;
+const translate = translateTexts as jest.Mock;
+const read = readTranslation as jest.Mock;
+const write = writeTranslation as jest.Mock;
+const fetchSrc = fetchChapter as jest.Mock;
+
+const params = {
+  apiKey: 'k',
+  pluginId: 'plug',
+  novelId: 7,
+  chapter: { id: 42, path: '/c/42', name: 'Title' },
+  sourceLang: 'ZH',
+  targetLang: 'RU',
+};
+const saved = { html: '<p>done</p>', title: 'T', createdAt: 'x' };
+
+const echoTranslate = async (_key: string, { texts }: { texts: string[] }) =>
+  texts.map(t => `T:${t}`);
+
+beforeEach(() => {
+  jest.resetAllMocks();
+  read.mockResolvedValue(undefined);
+  write.mockResolvedValue(undefined);
+  file.readFile.mockResolvedValue('<p>one</p><p>two</p>');
+  translate.mockImplementation(echoTranslate);
+});
+
+describe('translateChapter', () => {
+  it('returns a saved translation without calling DeepL', async () => {
+    read.mockResolvedValue(saved);
+    await expect(translateChapter(params)).resolves.toBe(saved);
+    expect(translate).not.toHaveBeenCalled();
+  });
+
+  it('calls DeepL when force is true', async () => {
+    read.mockResolvedValue(saved);
+    await translateChapter({ ...params, force: true });
+    expect(translate).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends the title first and the chapter parts after it', async () => {
+    const result = await translateChapter(params);
+    expect(translate.mock.calls[0][1].texts).toEqual([
+      'Title',
+      '<p>one</p><p>two</p>',
+    ]);
+    expect(result.title).toBe('T:Title');
+    expect(result.html).toBe('T:<p>one</p><p>two</p>');
+  });
+
+  it('joins long chapters in order and keeps img src', async () => {
+    const html = '<p>a</p><img src="https://x/y.png"><p>b</p>';
+    file.readFile.mockResolvedValue(html);
+    const parts = splitChapterHtml(html, 10);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.join('')).toBe(html);
+
+    const result = await translateChapter(params);
+    expect(result.html).toContain('src="https://x/y.png"');
+  });
+
+  it('never splits inside a tag', () => {
+    const html = '<p class="a b">hello <b>w</b></p><div id="x">text</div>';
+    const parts = splitChapterHtml(html, 5);
+    expect(parts).toHaveLength(2);
+    for (const part of parts) {
+      expect(part.match(/</g)?.length).toBe(part.match(/>/g)?.length);
+      expect(part.startsWith('<')).toBe(true);
+    }
+  });
+
+  describe('whitespace between top-level nodes', () => {
+    const big = `<p>${'x'.repeat(40)}</p>`;
+    const other = `<p>${'y'.repeat(40)}</p>`;
+    const isBlankPart = (part: string) => !part.replace(/&nbsp;/g, ' ').trim();
+
+    it.each([
+      ['trailing', `${big}\n`, 1],
+      ['leading', `\n${big}`, 1],
+      ['leading and trailing', `\n  ${big}\n\n`, 1],
+      ['separating', `${big}\n${other}`, 2],
+      ['surrounding', `\n${big}\n${other}\n`, 2],
+      ['non-breaking', `${big}\u00a0`, 1],
+    ])('attaches %s whitespace to a part', (_name, html, count) => {
+      const parts = splitChapterHtml(html, 30);
+
+      expect(parts).toHaveLength(count);
+      expect(parts.some(isBlankPart)).toBe(false);
+      expect(parts.join('').replace(/&nbsp;/g, '\u00a0')).toBe(html);
+    });
+
+    it('sends no blank part to DeepL for a chapter over the limit', async () => {
+      const long = `<p>${'x'.repeat(30001)}</p>`;
+      file.readFile.mockResolvedValue(`${long}\n`);
+
+      await translateChapter(params);
+
+      const texts = translate.mock.calls.flatMap(([, body]) => body.texts);
+      expect(texts).toEqual(['Title', `${long}\n`]);
+    });
+  });
+
+  it('shares one request between concurrent calls for the same chapter and pair', async () => {
+    const [a, b] = await Promise.all([
+      translateChapter(params),
+      translateChapter(params),
+    ]);
+    expect(a).toBe(b);
+    expect(translate).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs separately for a different language pair', async () => {
+    await Promise.all([
+      translateChapter(params),
+      translateChapter({ ...params, targetLang: 'EN' }),
+    ]);
+    expect(translate).toHaveBeenCalledTimes(2);
+  });
+
+  it('saves nothing when DeepL returns empty_result', async () => {
+    translate.mockRejectedValue(new TranslationError('empty_result'));
+    await expect(translateChapter(params)).rejects.toMatchObject({
+      code: 'empty_result',
+    });
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('rejects with empty_result and no DeepL call when the source is empty', async () => {
+    file.readFile.mockResolvedValue('<p> </p><br>');
+    await expect(translateChapter(params)).rejects.toMatchObject({
+      code: 'empty_result',
+    });
+    expect(translate).not.toHaveBeenCalled();
+  });
+
+  it('records the glossary id', async () => {
+    const result = await translateChapter({ ...params, glossaryId: 'g1' });
+    expect(result.glossaryId).toBe('g1');
+    expect(write.mock.calls[0][1].glossaryId).toBe('g1');
+  });
+
+  it('reads the downloaded file before asking the plugin', async () => {
+    await translateChapter(params);
+    expect(file.readFile).toHaveBeenCalledWith(
+      `${NOVEL_STORAGE}/plug/7/42/index.html`,
+    );
+    expect(fetchSrc).not.toHaveBeenCalled();
+
+    file.readFile.mockRejectedValue(new Error('missing'));
+    fetchSrc.mockResolvedValue('<p>net</p>');
+    await translateChapter({ ...params, targetLang: 'EN' });
+    expect(fetchSrc).toHaveBeenCalledWith('plug', '/c/42');
+  });
+
+  describe('multi-batch chapters', () => {
+    const longHtml = [
+      `<p>${'a'.repeat(20000)}</p>`,
+      '<img src="https://x/y.png">',
+      `<p>${'b'.repeat(20000)}</p>`,
+    ].join('');
+
+    it('sends several requests, keeps order and img src', async () => {
+      file.readFile.mockResolvedValue(longHtml);
+      const result = await translateChapter(params);
+
+      expect(translate.mock.calls.length).toBeGreaterThan(1);
+      const sent = translate.mock.calls.flatMap(c => c[1].texts);
+      expect(sent[0]).toBe('Title');
+      expect(sent.slice(1).join('')).toBe(longHtml);
+      expect(result.title).toBe('T:Title');
+      expect(result.html).toBe(
+        sent
+          .slice(1)
+          .map((t: string) => `T:${t}`)
+          .join(''),
+      );
+      expect(result.html).toContain('src="https://x/y.png"');
+      expect(write).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops after a short response in the first batch and saves nothing', async () => {
+      file.readFile.mockResolvedValue(longHtml);
+      translate.mockResolvedValueOnce([]);
+      await expect(translateChapter(params)).rejects.toMatchObject({
+        code: 'empty_result',
+      });
+      expect(translate).toHaveBeenCalledTimes(1);
+      expect(write).not.toHaveBeenCalled();
+    });
+  });
+});

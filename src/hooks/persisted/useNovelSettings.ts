@@ -9,6 +9,7 @@ import {
   defaultNovelSettings,
   NOVEL_PAGE_INDEX_PREFIX,
   NOVEL_SETTINGS_PREFIX,
+  NovelTranslationSettings,
 } from './useNovel/types';
 import { useNovelAction, useNovelValue } from '@screens/novel/NovelContext';
 
@@ -102,6 +103,25 @@ export const useNovelSettings = () => {
     [novel, writeNovelSettings, novelSettings],
   );
 
+  const setTranslation = useCallback(
+    (next: Partial<NovelTranslationSettings>) => {
+      if (novel) {
+        writeNovelSettings({
+          ...novelSettings,
+          translation: {
+            sourceLang: 'auto',
+            targetLang: '',
+            showTranslation: false,
+            glossaries: {},
+            ...novelSettings.translation,
+            ...next,
+          },
+        });
+      }
+    },
+    [novel, writeNovelSettings, novelSettings],
+  );
+
   // #endregion
 
   return useMemo(
@@ -115,6 +135,7 @@ export const useNovelSettings = () => {
       setChapterSort,
       setShowChapterTitles,
       setExcludedScanlators,
+      setTranslation,
     }),
     [
       cycleChapterFilter,
@@ -126,6 +147,7 @@ export const useNovelSettings = () => {
       setChapterSort,
       setShowChapterTitles,
       setExcludedScanlators,
+      setTranslation,
     ],
   );
 };

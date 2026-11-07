@@ -99,6 +99,7 @@ const NovelAppbar = ({
   downloadChapters,
   deleteChapters,
   showEditInfoModal,
+  showTranslationModal,
   downloadCustomChapterModal,
   setCustomNovelCover,
   goBack,
@@ -115,6 +116,7 @@ const NovelAppbar = ({
   downloadChapters: (amount: number | 'all' | 'unread') => void;
   deleteChapters: () => void;
   showEditInfoModal: React.Dispatch<React.SetStateAction<boolean>>;
+  showTranslationModal: () => void;
   downloadCustomChapterModal: () => void;
   setCustomNovelCover: () => Promise<void>;
   goBack: () => void;
@@ -202,6 +204,13 @@ const NovelAppbar = ({
       });
     }
 
+    if (!isLocal) {
+      items.push({
+        label: getString('translation.novel.title'),
+        onPress: showTranslationModal,
+      });
+    }
+
     items.push(
       {
         label: getString('webview.share'),
@@ -226,6 +235,7 @@ const NovelAppbar = ({
     setCustomNovelCover,
     shareNovel,
     showEditInfoModal,
+    showTranslationModal,
   ]);
 
   const openDlMenu = useCallback(() => showDownloadMenu(true), []);

@@ -14,7 +14,18 @@ import {
   useTrackedNovel,
   useTracker,
 } from '@hooks/persisted';
+import { getDeepLApiKey, useDeepLKey } from '@hooks/persisted/useDeepLKey';
+import { NovelTranslationSettings } from '@hooks/persisted/useNovel/types';
+import { useNovelSettings } from '@hooks/persisted/useNovelSettings';
 import { fetchChapter, fetchPage } from '@services/plugin/fetch';
+import { TranslationError } from '@services/translation/deeplClient';
+import { translateChapter } from '@services/translation/translateChapter';
+import { translationErrorMessage } from '@services/translation/translationErrorMessage';
+import { getGlossaryIdForPair } from '@services/translation/translationSettings';
+import {
+  readTranslation,
+  SavedTranslation,
+} from '@services/translation/translationStorage';
 import { NOVEL_STORAGE } from '@utils/Storages';
 import {
   RefObject,
@@ -47,6 +58,13 @@ type AdjacentChapters = [
 /** Stable identity so resetting the adjacent chapters never renders twice. */
 const NO_ADJACENT_CHAPTERS: AdjacentChapters = [undefined, undefined];
 
+/** A load the translation button started, and which way it was pressed. */
+type TranslationPress = 'show' | 'hide';
+
+const hasTranslationLanguages = (
+  settings: NovelTranslationSettings | undefined,
+): settings is NovelTranslationSettings => Boolean(settings?.targetLang);
+
 export default function useChapter(
   webViewRef: RefObject<WebView | null>,
   initialChapter: ChapterInfo,
@@ -60,11 +78,17 @@ export default function useChapter(
     chapterTextCache,
   } = useNovelActions();
   const novelSettings = useNovelValue('novelSettings');
+  const { translation, setTranslation } = useNovelSettings();
+  const { apiKey } = useDeepLKey();
 
   const [hidden, setHidden] = useState(true);
   const [chapter, setChapter] = useState(initialChapter);
   const [loading, setLoading] = useState(true);
   const [chapterText, setChapterText] = useState('');
+  const [translating, setTranslating] = useState(false);
+  const [showingTranslation, setShowingTranslation] = useState(false);
+  const [translationSaved, setTranslationSaved] = useState(false);
+  const [translatedTitle, setTranslatedTitle] = useState<string>();
 
   const [[nextChapter, prevChapter], setAdjacentChapter] =
     useState<AdjacentChapters>(NO_ADJACENT_CHAPTERS);
@@ -101,9 +125,26 @@ export default function useChapter(
   const chapterRef = useRef(chapter);
   const adjacentChapterRef = useRef<AdjacentChapters>(NO_ADJACENT_CHAPTERS);
   const excludedScanlatorsRef = useRef(novelSettings?.excludedScanlators);
+  const translationRef = useRef(translation);
+  const setTranslationRef = useRef(setTranslation);
   const hiddenRef = useRef(hidden);
   /** Increments on every load so a superseded load can never publish state. */
   const loadIdRef = useRef(0);
+  /** Chapter the newest load is opening, so a toggle cannot cancel the open. */
+  const openingChapterRef = useRef<ChapterInfo | undefined>(undefined);
+  /**
+   * What the button last asked for, ahead of what is on screen while a load
+   * runs. Every finished load resets it to what is on screen, so after a chapter
+   * opened without its translation the next press retries even though the
+   * stored mode is still on.
+   */
+  const translationWantedRef = useRef(false);
+  const translationOnScreenRef = useRef(false);
+  /**
+   * A press to hide still running. It writes the mode only once the original has
+   * loaded, so a load that replaces it has to write the mode in its place.
+   */
+  const pendingHideRef = useRef(false);
 
   useEffect(() => {
     chapterRef.current = chapter;
@@ -116,6 +157,14 @@ export default function useChapter(
   useEffect(() => {
     excludedScanlatorsRef.current = novelSettings?.excludedScanlators;
   }, [novelSettings?.excludedScanlators]);
+
+  useEffect(() => {
+    translationRef.current = translation;
+  }, [translation]);
+
+  useEffect(() => {
+    setTranslationRef.current = setTranslation;
+  }, [setTranslation]);
 
   useEffect(() => {
     hiddenRef.current = hidden;
@@ -343,26 +392,166 @@ export default function useChapter(
     [loadPageBoundaryChapter, novel.totalPages, prefetchChapter],
   );
 
+  const readChapterTranslation = useCallback(
+    (chap: ChapterInfo, settings: NovelTranslationSettings) =>
+      readTranslation({
+        pluginId: novel.pluginId,
+        novelId: chap.novelId,
+        chapterId: chap.id,
+        sourceLang: settings.sourceLang,
+        targetLang: settings.targetLang,
+      }),
+    [novel.pluginId],
+  );
+
+  /**
+   * Only the chapter the reader is opening ever gets here, so nothing is
+   * translated ahead of time. A failure is reported and resolves to undefined,
+   * which keeps the original on screen instead of failing the load.
+   */
+  const translateOpenedChapter = useCallback(
+    async (
+      chap: ChapterInfo,
+      settings: NovelTranslationSettings,
+      opening: boolean,
+      isStale: () => boolean,
+    ): Promise<SavedTranslation | undefined> => {
+      const key = getDeepLApiKey();
+      if (!key) {
+        return undefined;
+      }
+
+      if (opening) {
+        setLoading(true);
+      }
+      setTranslating(true);
+      try {
+        return await translateChapter({
+          apiKey: key,
+          pluginId: novel.pluginId,
+          novelId: chap.novelId,
+          chapter: chap,
+          sourceLang: settings.sourceLang,
+          targetLang: settings.targetLang,
+          glossaryId: getGlossaryIdForPair(settings),
+        });
+      } catch (e) {
+        if (!isStale()) {
+          showToast(
+            translationErrorMessage(
+              e instanceof TranslationError ? e.code : 'unknown',
+            ),
+          );
+        }
+        return undefined;
+      }
+    },
+    [novel.pluginId],
+  );
+
+  const storeTranslationMode = useCallback((showTranslation: boolean) => {
+    const settings = translationRef.current;
+    if (!settings) {
+      return;
+    }
+    // Set ahead of the store update, which a load started now would miss.
+    translationRef.current = { ...settings, showTranslation };
+    setTranslationRef.current({ showTranslation });
+  }, []);
+
   const getChapter = useCallback(
-    async (navChapter?: ChapterInfo) => {
+    async (navChapter?: ChapterInfo, press?: TranslationPress) => {
       const loadId = ++loadIdRef.current;
       const isStale = () => loadId !== loadIdRef.current;
       const requested = navChapter ?? chapterRef.current;
+      openingChapterRef.current = navChapter;
+
+      if (press) {
+        pendingHideRef.current = press === 'hide';
+      } else if (pendingHideRef.current) {
+        pendingHideRef.current = false;
+        storeTranslationMode(false);
+      }
+
+      const settings = translationRef.current;
+      // A press to hide runs as if the mode were off, but the mode itself is only
+      // written once the original has loaded: see below.
+      const translationMode =
+        press !== 'hide' &&
+        hasTranslationLanguages(settings) &&
+        settings.showTranslation
+          ? settings
+          : undefined;
+      let shown: SavedTranslation | undefined;
 
       try {
-        // Start the text load first: it is the only thing needed to paint.
-        const htmlPromise = loadChapterHtml(requested);
+        // A chapter opened from its translation has no original yet, and fetching
+        // it can take a while. A cached one is ready at once: no indicator flash.
+        if (press === 'hide' && !chapterTextCache.read(requested.id)) {
+          setTranslating(true);
+        }
+
+        // Looked up first so a saved translation opens even when the original
+        // cannot be fetched; the original is then skipped until a toggle needs
+        // it. Otherwise the text load goes first: it is all a paint needs.
+        if (translationMode) {
+          shown = await readChapterTranslation(requested, translationMode);
+          if (isStale()) {
+            return;
+          }
+        }
+
         const [dbChapter, html] = await Promise.all([
           navChapter ? undefined : getDbChapter(requested.id),
-          htmlPromise,
+          shown ? '' : loadChapterHtml(requested),
         ]);
         if (isStale()) {
           return;
         }
 
         const chap = dbChapter ?? requested;
+        if (translationMode && !shown) {
+          shown = await translateOpenedChapter(
+            chap,
+            translationMode,
+            Boolean(navChapter),
+            isStale,
+          );
+        }
+
+        let saved = Boolean(shown);
+        // With the mode off the file only decides whether the button shows, and
+        // a key already shows it: skip the read on the path to first paint.
+        if (
+          !translationMode &&
+          hasTranslationLanguages(settings) &&
+          !getDeepLApiKey()
+        ) {
+          saved = Boolean(await readChapterTranslation(chap, settings));
+        }
+        if (isStale()) {
+          return;
+        }
+
+        if (press === 'hide') {
+          storeTranslationMode(false);
+        }
+        translationOnScreenRef.current = Boolean(shown);
         setChapter(chap);
-        setChapterText(html);
+        // Sanitized here rather than cached: the cache only ever holds originals.
+        setChapterText(
+          shown
+            ? sanitizeChapterText(
+                novel.pluginId,
+                novel.name,
+                chap.name,
+                shown.html,
+              )
+            : html,
+        );
+        setShowingTranslation(Boolean(shown));
+        setTranslationSaved(saved);
+        setTranslatedTitle(shown?.title);
         setAdjacentChapter(NO_ADJACENT_CHAPTERS);
         setLoading(false);
 
@@ -371,12 +560,72 @@ export default function useChapter(
         if (isStale()) {
           return;
         }
-        setError(e.message);
         setLoading(false);
+        // A press must never trade the text being read for the error screen.
+        if (press) {
+          showToast(getString('translation.reader.originalUnavailable'));
+        } else {
+          setError(e.message);
+        }
+      } finally {
+        // Only the newest load may clear these: a superseded one finishing must
+        // not hide the indicator of the translation that replaced it.
+        if (!isStale()) {
+          openingChapterRef.current = undefined;
+          pendingHideRef.current = false;
+          translationWantedRef.current = translationOnScreenRef.current;
+          setTranslating(false);
+          // A press that ends without a translation leaves the mode off, or it
+          // could never be turned off while translating fails or the key is gone.
+          if (press === 'show' && !shown) {
+            storeTranslationMode(false);
+          }
+        }
       }
     },
-    [loadChapterHtml, resolveAdjacentChapters],
+    [
+      chapterTextCache,
+      loadChapterHtml,
+      novel.name,
+      novel.pluginId,
+      readChapterTranslation,
+      resolveAdjacentChapters,
+      storeTranslationMode,
+      translateOpenedChapter,
+    ],
   );
+
+  const toggleTranslation = useCallback(() => {
+    if (!hasTranslationLanguages(translationRef.current)) {
+      return;
+    }
+    const showTranslation = !translationWantedRef.current;
+    translationWantedRef.current = showTranslation;
+    if (showTranslation) {
+      storeTranslationMode(true);
+    }
+    void getChapter(
+      openingChapterRef.current,
+      showTranslation ? 'show' : 'hide',
+    );
+  }, [getChapter, storeTranslationMode]);
+
+  /**
+   * TTS moving on by itself is not a request to translate, so this only ever
+   * reads storage: it must never spend quota.
+   */
+  const canAutoAdvance = useCallback(async () => {
+    const settings = translationRef.current;
+    const [next] = adjacentChapterRef.current;
+    if (
+      !next ||
+      !hasTranslationLanguages(settings) ||
+      !settings.showTranslation
+    ) {
+      return true;
+    }
+    return Boolean(await readChapterTranslation(next, settings));
+  }, [readChapterTranslation]);
 
   const searchChapterText = useCallback(
     (text: string) => {
@@ -544,6 +793,16 @@ export default function useChapter(
       error,
       loading,
       chapterText,
+      translating,
+      showingTranslation,
+      translationAvailable:
+        !novel.isLocal &&
+        (Boolean(apiKey) ||
+          translationSaved ||
+          Boolean(translation?.showTranslation)),
+      translatedTitle,
+      toggleTranslation,
+      canAutoAdvance,
       setHidden,
       saveProgress,
       hideHeader,
@@ -565,6 +824,15 @@ export default function useChapter(
       error,
       loading,
       chapterText,
+      translating,
+      showingTranslation,
+      novel.isLocal,
+      apiKey,
+      translationSaved,
+      translation?.showTranslation,
+      translatedTitle,
+      toggleTranslation,
+      canAutoAdvance,
       saveProgress,
       hideHeader,
       navigateChapter,

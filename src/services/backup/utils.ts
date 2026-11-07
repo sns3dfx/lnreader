@@ -1,5 +1,6 @@
 import { SELF_HOST_BACKUP } from '@hooks/persisted/useSelfHost';
 import { OLD_TRACKED_NOVEL_PREFIX } from '@hooks/persisted/migrations/trackerMigration';
+import { DEEPL_API_KEY } from '@hooks/persisted/useDeepLKey';
 import { LAST_UPDATE_TIME } from '@hooks/persisted/useUpdates';
 import { MMKVStorage } from '@utils/mmkv/mmkv';
 import { version } from '../../../package.json';
@@ -62,8 +63,9 @@ export const clearBackupCache = async (cacheDirPath = CACHE_DIR_PATH) => {
   }
 };
 
-const backupMMKVData = () => {
+export const backupMMKVData = () => {
   const excludeKeys = [
+    DEEPL_API_KEY,
     BACKGROUND_TASKS_STORE_KEY,
     OLD_TRACKED_NOVEL_PREFIX,
     SELF_HOST_BACKUP,
